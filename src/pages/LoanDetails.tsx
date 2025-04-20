@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLoanContext } from '../context/LoanContext';
@@ -39,17 +38,14 @@ const LoanDetails = () => {
   const loan = id ? getLoanById(id) : null;
   const payments = id ? getPaymentsByLoanId(id) : [];
   
-  // Estado para o formulário de pagamento
   const [paymentForm, setPaymentForm] = useState({
     amount: '',
     date: format(new Date(), 'yyyy-MM-dd'),
     notes: ''
   });
   
-  // Estado para controlar a exibição do formulário de pagamento
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   
-  // Se o empréstimo não for encontrado, retornar uma mensagem de erro
   if (!loan) {
     return (
       <div className="text-center py-12">
@@ -65,7 +61,6 @@ const LoanDetails = () => {
     );
   }
   
-  // Formatar valores para exibição
   const formatCurrency = (value: number) => {
     return `R$ ${value.toLocaleString('pt-BR', {
       minimumFractionDigits: 2,
@@ -73,16 +68,13 @@ const LoanDetails = () => {
     })}`;
   };
   
-  // Calcular o saldo restante
   const remainingBalance = calculateRemainingBalance(loan, payments);
   
-  // Atualizar campos do formulário de pagamento
   const handlePaymentFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setPaymentForm(prev => ({ ...prev, [name]: value }));
   };
   
-  // Registrar um novo pagamento
   const handlePaymentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -94,10 +86,8 @@ const LoanDetails = () => {
         return;
       }
       
-      // Calcular a distribuição do pagamento entre principal e juros
       const distribution = calculatePaymentDistribution(loan, amount, new Date(paymentForm.date));
       
-      // Criar um novo pagamento
       const newPayment: Omit<Payment, 'id'> = {
         loanId: loan.id,
         date: paymentForm.date,
@@ -107,10 +97,8 @@ const LoanDetails = () => {
         notes: paymentForm.notes
       };
       
-      // Adicionar o pagamento
       addPayment(newPayment);
       
-      // Atualizar o status do empréstimo
       const updatedPayments = [...payments, { ...newPayment, id: 'temp' }];
       const newStatus = determineNewLoanStatus(loan, updatedPayments);
       
@@ -121,14 +109,12 @@ const LoanDetails = () => {
         });
       }
       
-      // Limpar o formulário
       setPaymentForm({
         amount: '',
         date: format(new Date(), 'yyyy-MM-dd'),
         notes: ''
       });
       
-      // Esconder o formulário
       setShowPaymentForm(false);
     } catch (error) {
       console.error('Erro ao registrar pagamento:', error);
@@ -136,7 +122,6 @@ const LoanDetails = () => {
     }
   };
   
-  // Excluir um pagamento
   const handleDeletePayment = (paymentId: string) => {
     if (window.confirm('Tem certeza que deseja excluir este pagamento?')) {
       deletePayment(paymentId);
@@ -145,7 +130,6 @@ const LoanDetails = () => {
   
   return (
     <div className="space-y-6">
-      {/* Cabeçalho */}
       <div className="flex justify-between items-center">
         <div>
           <button
@@ -175,7 +159,6 @@ const LoanDetails = () => {
         </div>
       </div>
       
-      {/* Detalhes do Empréstimo */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-xl font-semibold mb-4">Informações do Empréstimo</h2>
@@ -189,7 +172,7 @@ const LoanDetails = () => {
               
               <div>
                 <p className="text-sm text-gray-500">Taxa de Juros</p>
-                <p className="font-medium">{loan.interestRate}% ao ano</p>
+                <p className="font-medium">{loan.interestRate}% ao mês</p>
               </div>
             </div>
             
@@ -296,7 +279,6 @@ const LoanDetails = () => {
         </div>
       </div>
       
-      {/* Seção de Pagamentos */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
           <h2 className="text-xl font-semibold">Histórico de Pagamentos</h2>
@@ -316,7 +298,6 @@ const LoanDetails = () => {
           </button>
         </div>
         
-        {/* Formulário de Pagamento */}
         {showPaymentForm && (
           <div className="p-6 border-b border-gray-200 bg-gray-50">
             <form onSubmit={handlePaymentSubmit} className="space-y-4">
@@ -377,7 +358,6 @@ const LoanDetails = () => {
           </div>
         )}
         
-        {/* Lista de Pagamentos */}
         <div className="p-6">
           {payments.length === 0 ? (
             <div className="text-center py-8 text-gray-500">

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLoanContext } from '../context/LoanContext';
@@ -14,7 +13,6 @@ const LoanForm = () => {
   const isEditMode = !!id;
   const loan = id ? getLoanById(id) : null;
   
-  // Estado para os campos do formulário
   const [formData, setFormData] = useState<{
     borrowerId: string;
     principal: string;
@@ -43,7 +41,6 @@ const LoanForm = () => {
     }
   });
   
-  // Carregar dados do empréstimo se estiver no modo de edição
   useEffect(() => {
     if (isEditMode && loan) {
       setFormData({
@@ -63,7 +60,6 @@ const LoanForm = () => {
     }
   }, [isEditMode, loan]);
   
-  // Atualizar formulário
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     
@@ -84,7 +80,6 @@ const LoanForm = () => {
     }
   };
   
-  // Lidar com alteração no checkbox do cronograma de pagamento
   const handlePaymentScheduleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
       ...formData,
@@ -92,16 +87,13 @@ const LoanForm = () => {
     });
   };
   
-  // Calcular o valor das parcelas automaticamente
   const calculateInstallmentAmount = () => {
     const principal = parseFloat(formData.principal);
     const interestRate = parseFloat(formData.interestRate) / 100; // Converter para decimal
     const installments = parseInt(formData.paymentSchedule.installments);
     
     if (principal && !isNaN(principal) && installments && !isNaN(installments)) {
-      // Cálculo simples: Principal / Número de Parcelas + (Principal * Taxa de Juros / 12)
-      // Este é um cálculo simplificado. Para um cálculo mais preciso, seria necessário usar a fórmula de amortização.
-      const monthlyInterest = principal * interestRate / 12;
+      const monthlyInterest = principal * interestRate;
       const installmentAmount = principal / installments + monthlyInterest;
       
       setFormData({
@@ -114,25 +106,21 @@ const LoanForm = () => {
     }
   };
   
-  // Recalcular o valor das parcelas quando os valores mudarem
   useEffect(() => {
     if (formData.hasPaymentSchedule) {
       calculateInstallmentAmount();
     }
   }, [formData.principal, formData.interestRate, formData.paymentSchedule.installments, formData.hasPaymentSchedule]);
   
-  // Enviar formulário
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     try {
-      // Validar campos obrigatórios
       if (!formData.borrowerId || !formData.principal || !formData.interestRate || !formData.issueDate || !formData.dueDate) {
         alert('Por favor, preencha todos os campos obrigatórios.');
         return;
       }
       
-      // Preparar dados do empréstimo
       const borrower = borrowers.find(b => b.id === formData.borrowerId);
       
       if (!borrower) {
@@ -140,7 +128,6 @@ const LoanForm = () => {
         return;
       }
       
-      // Estruturar os dados do empréstimo
       const loanData: Omit<Loan, 'id'> = {
         borrowerId: formData.borrowerId,
         borrowerName: borrower.name,
@@ -148,11 +135,10 @@ const LoanForm = () => {
         interestRate: parseFloat(formData.interestRate),
         issueDate: formData.issueDate,
         dueDate: formData.dueDate,
-        status: 'active', // Por padrão, um novo empréstimo está ativo
+        status: 'active',
         notes: formData.notes
       };
       
-      // Adicionar cronograma de pagamento se estiver habilitado
       if (formData.hasPaymentSchedule) {
         loanData.paymentSchedule = {
           frequency: formData.paymentSchedule.frequency,
@@ -162,14 +148,12 @@ const LoanForm = () => {
         };
       }
       
-      // Criar ou atualizar o empréstimo
       if (isEditMode && loan) {
         updateLoan({ ...loanData, id: loan.id, status: loan.status });
       } else {
         addLoan(loanData);
       }
       
-      // Redirecionar para a lista de empréstimos
       navigate('/loans');
     } catch (error) {
       console.error('Erro ao salvar empréstimo:', error);
@@ -177,7 +161,6 @@ const LoanForm = () => {
     }
   };
   
-  // Calcular a próxima data de pagamento com base na frequência
   const calculateNextPaymentDate = (issueDate: string, frequency: PaymentSchedule['frequency']): string => {
     const startDate = parseISO(issueDate);
     let nextDate: Date;
@@ -221,7 +204,6 @@ const LoanForm = () => {
       </div>
       
       <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6 space-y-6">
-        {/* Informações Básicas */}
         <div>
           <h2 className="text-xl font-medium mb-4">Informações Básicas</h2>
           
@@ -264,7 +246,7 @@ const LoanForm = () => {
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Taxa de Juros (% ao ano) *
+                Taxa de Juros (% ao mês) *
               </label>
               <input
                 type="number"
@@ -308,7 +290,6 @@ const LoanForm = () => {
           </div>
         </div>
         
-        {/* Cronograma de Pagamento */}
         <div>
           <div className="flex items-center mb-4">
             <input
@@ -380,7 +361,6 @@ const LoanForm = () => {
           )}
         </div>
         
-        {/* Observações */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Observações
@@ -394,7 +374,6 @@ const LoanForm = () => {
           ></textarea>
         </div>
         
-        {/* Botões de Ação */}
         <div className="flex justify-end space-x-3">
           <button
             type="button"

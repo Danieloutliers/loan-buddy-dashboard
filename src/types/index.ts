@@ -15,7 +15,7 @@ export interface Loan {
   borrowerId: string;
   borrowerName: string;
   principal: number;
-  interestRate: number; // Taxa de juros anual em porcentagem
+  interestRate: number; // Taxa de juros mensal em porcentagem
   issueDate: string; // ISO date string
   dueDate: string; // ISO date string
   status: LoanStatus;

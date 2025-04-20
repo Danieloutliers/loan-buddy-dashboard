@@ -16,12 +16,15 @@ export const calculateTotalDue = (loan: Loan, currentDate: Date = new Date()): n
     return 0;
   }
 
-  // Calcula dias desde a emissão até a data atual ou data de vencimento (o que for menor)
+  // Calcula meses desde a emissão até a data atual ou data de vencimento (o que for menor)
   const endDate = isBefore(currentDate, dueDate) ? currentDate : dueDate;
   const daysElapsed = differenceInDays(endDate, issueDate);
   
-  // Juros simples: Principal * Taxa * (Dias / 365)
-  const interest = principal * interestRate * (daysElapsed / 365);
+  // Convertendo dias para meses (aproximadamente)
+  const monthsElapsed = daysElapsed / 30;
+  
+  // Juros simples: Principal * Taxa * Meses
+  const interest = principal * interestRate * monthsElapsed;
   
   return principal + interest;
 };
