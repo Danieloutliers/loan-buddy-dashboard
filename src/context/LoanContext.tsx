@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { Borrower, Loan, Payment } from '../types';
 import { mockBorrowers, mockLoans, mockPayments, generateId } from '../data/mockData';
@@ -29,6 +28,11 @@ interface LoanContextType {
   };
   getOverdueLoans: () => Loan[];
   getUpcomingDueLoans: (days: number) => Loan[];
+  importLoansData: (data: any[]) => { 
+    success: boolean; 
+    imported: number; 
+    message?: string;
+  };
 }
 
 const LoanContext = createContext<LoanContextType | undefined>(undefined);
@@ -38,7 +42,6 @@ export const LoanProvider = ({ children }: { children: ReactNode }) => {
   const [loans, setLoans] = useState<Loan[]>(mockLoans);
   const [payments, setPayments] = useState<Payment[]>(mockPayments);
 
-  // Funções para gerenciar mutuários
   const addBorrower = (borrowerData: Omit<Borrower, 'id'>) => {
     const newBorrower: Borrower = {
       ...borrowerData,
@@ -55,7 +58,6 @@ export const LoanProvider = ({ children }: { children: ReactNode }) => {
       )
     );
     
-    // Atualizar os nomes dos mutuários nos empréstimos relacionados
     setLoans(
       loans.map(loan => 
         loan.borrowerId === updatedBorrower.id
@@ -66,7 +68,6 @@ export const LoanProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const deleteBorrower = (id: string) => {
-    // Verificar se existem empréstimos vinculados ao mutuário
     const hasLoans = loans.some(loan => loan.borrowerId === id);
     
     if (hasLoans) {
@@ -77,7 +78,6 @@ export const LoanProvider = ({ children }: { children: ReactNode }) => {
     setBorrowers(borrowers.filter(borrower => borrower.id !== id));
   };
 
-  // Funções para gerenciar empréstimos
   const addLoan = (loanData: Omit<Loan, 'id'>) => {
     const newLoan: Loan = {
       ...loanData,
@@ -96,11 +96,9 @@ export const LoanProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const deleteLoan = (id: string) => {
-    // Verificar se existem pagamentos vinculados ao empréstimo
     const hasPayments = payments.some(payment => payment.loanId === id);
     
     if (hasPayments) {
-      // Perguntar ao usuário se deseja excluir os pagamentos também
       const confirmDelete = window.confirm(
         'Este empréstimo possui pagamentos registrados. Deseja excluir o empréstimo e todos os seus pagamentos?'
       );
@@ -109,14 +107,12 @@ export const LoanProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
       
-      // Excluir os pagamentos relacionados
       setPayments(payments.filter(payment => payment.loanId !== id));
     }
     
     setLoans(loans.filter(loan => loan.id !== id));
   };
 
-  // Funções para gerenciar pagamentos
   const addPayment = (paymentData: Omit<Payment, 'id'>) => {
     const newPayment: Payment = {
       ...paymentData,
@@ -126,13 +122,11 @@ export const LoanProvider = ({ children }: { children: ReactNode }) => {
     const updatedPayments = [...payments, newPayment];
     setPayments(updatedPayments);
     
-    // Atualizar o status do empréstimo após o pagamento
     const loan = loans.find(loan => loan.id === paymentData.loanId);
     
     if (loan) {
       const newStatus = determineNewLoanStatus(loan, updatedPayments);
       
-      // Atualizar o empréstimo se o status mudou
       if (newStatus !== loan.status) {
         updateLoan({
           ...loan,
@@ -151,13 +145,11 @@ export const LoanProvider = ({ children }: { children: ReactNode }) => {
     
     setPayments(updatedPayments);
     
-    // Atualizar o status do empréstimo após a atualização do pagamento
     const loan = loans.find(loan => loan.id === updatedPayment.loanId);
     
     if (loan) {
       const newStatus = determineNewLoanStatus(loan, updatedPayments);
       
-      // Atualizar o empréstimo se o status mudou
       if (newStatus !== loan.status) {
         updateLoan({
           ...loan,
@@ -177,13 +169,11 @@ export const LoanProvider = ({ children }: { children: ReactNode }) => {
     const updatedPayments = payments.filter(payment => payment.id !== id);
     setPayments(updatedPayments);
     
-    // Atualizar o status do empréstimo após a exclusão do pagamento
     const loan = loans.find(loan => loan.id === payment.loanId);
     
     if (loan) {
       const newStatus = determineNewLoanStatus(loan, updatedPayments);
       
-      // Atualizar o empréstimo se o status mudou
       if (newStatus !== loan.status) {
         updateLoan({
           ...loan,
@@ -193,7 +183,6 @@ export const LoanProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Funções de consulta
   const getBorrowerById = (id: string) => {
     return borrowers.find(borrower => borrower.id === id);
   };
@@ -210,7 +199,6 @@ export const LoanProvider = ({ children }: { children: ReactNode }) => {
     return payments.filter(payment => payment.loanId === loanId);
   };
 
-  // Funções para cálculos e métricas
   const calculateLoanMetrics = () => {
     const now = new Date();
     
@@ -218,27 +206,22 @@ export const LoanProvider = ({ children }: { children: ReactNode }) => {
     let totalInterestAccrued = 0;
     let totalOverdue = 0;
     
-    // Calcular o total de principal pendente e juros acumulados
     loans.forEach(loan => {
       if (loan.status !== 'paid') {
         const loanPayments = getPaymentsByLoanId(loan.id);
         const remainingBalance = calculateRemainingBalance(loan, loanPayments, now);
         
-        // Adicionar ao principal pendente
         totalPrincipalOutstanding += remainingBalance;
         
-        // Calcular juros acumulados (já pagos)
         const interestPaid = loanPayments.reduce((sum, payment) => sum + payment.interest, 0);
         totalInterestAccrued += interestPaid;
         
-        // Se estiver vencido, adicionar ao total em atraso
         if (loan.status === 'overdue' || loan.status === 'defaulted') {
           totalOverdue += remainingBalance;
         }
       }
     });
     
-    // Calcular a entrada de caixa mensal (pagamentos recebidos no mês atual)
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
     
@@ -260,14 +243,12 @@ export const LoanProvider = ({ children }: { children: ReactNode }) => {
     };
   };
 
-  // Obter empréstimos em atraso
   const getOverdueLoans = () => {
     return loans.filter(loan => 
       loan.status === 'overdue' || loan.status === 'defaulted'
     );
   };
 
-  // Obter empréstimos com vencimento próximo
   const getUpcomingDueLoans = (days: number) => {
     const now = new Date();
     const futureDate = new Date(now);
@@ -281,6 +262,91 @@ export const LoanProvider = ({ children }: { children: ReactNode }) => {
       const dueDate = new Date(loan.dueDate);
       return dueDate >= now && dueDate <= futureDate;
     });
+  };
+
+  const importLoansData = (data: any[]) => {
+    if (!data || data.length === 0) {
+      return { success: false, imported: 0, message: "Nenhum dado para importar" };
+    }
+
+    try {
+      const importedBorrowers: Record<string, Borrower> = {};
+      const importedLoans: Loan[] = [];
+      
+      data.forEach(item => {
+        const borrowerId = item['ID do Mutuário'];
+        let borrower = borrowers.find(b => b.id === borrowerId);
+        
+        if (!borrower && !importedBorrowers[borrowerId]) {
+          importedBorrowers[borrowerId] = {
+            id: borrowerId,
+            name: item['Nome do Mutuário'],
+            email: item['Email do Mutuário'] || '',
+            phone: item['Telefone do Mutuário'] || ''
+          };
+        }
+        
+        if (!item['ID do Empréstimo'] || !item['Valor Principal'] || !item['Taxa de Juros']) {
+          return;
+        }
+        
+        const loan: Loan = {
+          id: item['ID do Empréstimo'],
+          borrowerId: borrowerId,
+          borrowerName: item['Nome do Mutuário'],
+          principal: parseFloat(item['Valor Principal']),
+          interestRate: parseFloat(item['Taxa de Juros']),
+          issueDate: item['Data de Emissão'],
+          dueDate: item['Data de Vencimento'],
+          status: item['Status'] as LoanStatus || 'active',
+          notes: item['Notas'] || ''
+        };
+        
+        if (item['Frequência de Pagamento'] && item['Número de Parcelas'] && item['Valor da Parcela']) {
+          loan.paymentSchedule = {
+            frequency: item['Frequência de Pagamento'] as any,
+            installments: parseInt(item['Número de Parcelas']),
+            installmentAmount: parseFloat(item['Valor da Parcela']),
+            nextPaymentDate: item['Próxima Data de Pagamento'] || item['Data de Emissão']
+          };
+        }
+        
+        importedLoans.push(loan);
+      });
+      
+      const newBorrowers = [...borrowers];
+      Object.values(importedBorrowers).forEach(borrower => {
+        if (!newBorrowers.some(b => b.id === borrower.id)) {
+          newBorrowers.push(borrower);
+        }
+      });
+      
+      const newLoans = [...loans];
+      importedLoans.forEach(loan => {
+        const existingLoanIndex = newLoans.findIndex(l => l.id === loan.id);
+        if (existingLoanIndex >= 0) {
+          newLoans[existingLoanIndex] = loan;
+        } else {
+          newLoans.push(loan);
+        }
+      });
+      
+      setBorrowers(newBorrowers);
+      setLoans(newLoans);
+      
+      return { 
+        success: true, 
+        imported: importedLoans.length,
+        message: `${importedLoans.length} empréstimos importados com sucesso.`
+      };
+    } catch (error) {
+      console.error("Erro ao importar dados:", error);
+      return { 
+        success: false, 
+        imported: 0, 
+        message: "Erro ao processar os dados. Verifique o formato e tente novamente."
+      };
+    }
   };
 
   const value = {
@@ -302,7 +368,8 @@ export const LoanProvider = ({ children }: { children: ReactNode }) => {
     getPaymentsByLoanId,
     calculateLoanMetrics,
     getOverdueLoans,
-    getUpcomingDueLoans
+    getUpcomingDueLoans,
+    importLoansData
   };
 
   return (

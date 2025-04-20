@@ -1,13 +1,20 @@
 
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { useLoanContext } from '../context/LoanContext';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { FileText, Download } from 'lucide-react';
+import { FileText, Download, Upload, AlertCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
+import { toast } from '@/components/ui/sonner';
 
 const Reports = () => {
-  const { loans, payments, calculateLoanMetrics } = useLoanContext();
+  const { loans, payments, borrowers, calculateLoanMetrics, importLoansData } = useLoanContext();
   const metrics = calculateLoanMetrics();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast: UIToast } = useToast();
+  const [importError, setImportError] = useState<string | null>(null);
 
   const formatCurrency = (value: number) => {
     return `R$ ${value.toLocaleString('pt-BR', {
@@ -17,19 +24,33 @@ const Reports = () => {
   };
 
   const exportToCSV = () => {
-    // Preparar dados dos empréstimos
-    const loanData = loans.map(loan => ({
-      'ID do Empréstimo': loan.id,
-      'Nome do Mutuário': loan.borrowerName,
-      'Valor Principal': loan.principal,
-      'Taxa de Juros': `${loan.interestRate}%`,
-      'Data de Emissão': format(parseISO(loan.issueDate), 'dd/MM/yyyy'),
-      'Data de Vencimento': format(parseISO(loan.dueDate), 'dd/MM/yyyy'),
-      'Status': loan.status
-    }));
+    // Preparar dados detalhados dos empréstimos
+    const loanData = loans.map(loan => {
+      const borrower = borrowers.find(b => b.id === loan.borrowerId);
+      const loanPayments = payments.filter(p => p.loanId === loan.id);
+      
+      return {
+        'ID do Empréstimo': loan.id,
+        'ID do Mutuário': loan.borrowerId,
+        'Nome do Mutuário': loan.borrowerName,
+        'Email do Mutuário': borrower?.email || '',
+        'Telefone do Mutuário': borrower?.phone || '',
+        'Valor Principal': loan.principal,
+        'Taxa de Juros': `${loan.interestRate}`,
+        'Data de Emissão': loan.issueDate,
+        'Data de Vencimento': loan.dueDate,
+        'Status': loan.status,
+        'Frequência de Pagamento': loan.paymentSchedule?.frequency || '',
+        'Número de Parcelas': loan.paymentSchedule?.installments || '',
+        'Valor da Parcela': loan.paymentSchedule?.installmentAmount || '',
+        'Próxima Data de Pagamento': loan.paymentSchedule?.nextPaymentDate || '',
+        'Notas': loan.notes || '',
+        'Número de Pagamentos': loanPayments.length,
+      };
+    });
 
     // Converter para CSV
-    const headers = Object.keys(loanData[0]).join(',');
+    const headers = Object.keys(loanData[0] || {}).join(',');
     const rows = loanData.map(obj => Object.values(obj).join(','));
     const csv = [headers, ...rows].join('\n');
 
@@ -41,24 +62,125 @@ const Reports = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    
+    toast({
+      title: "Exportação concluída",
+      description: `${loanData.length} empréstimos exportados com sucesso.`,
+    });
+  };
+
+  const handleFileUpload = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setImportError(null);
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const csvContent = event.target?.result as string;
+        const lines = csvContent.split('\n');
+        const headers = lines[0].split(',');
+        
+        // Verificar se o arquivo CSV tem o formato esperado
+        const requiredFields = ['ID do Empréstimo', 'ID do Mutuário', 'Nome do Mutuário', 'Valor Principal', 'Taxa de Juros'];
+        const missingFields = requiredFields.filter(field => !headers.includes(field));
+        
+        if (missingFields.length > 0) {
+          setImportError(`O arquivo não contém os campos obrigatórios: ${missingFields.join(', ')}`);
+          return;
+        }
+        
+        // Processar os dados
+        const loansData = [];
+        for (let i = 1; i < lines.length; i++) {
+          if (!lines[i].trim()) continue;
+          
+          const values = lines[i].split(',');
+          const loanData: any = {};
+          
+          headers.forEach((header, index) => {
+            loanData[header] = values[index];
+          });
+          
+          loansData.push(loanData);
+        }
+        
+        const result = importLoansData(loansData);
+        if (result.success) {
+          UIToast({
+            title: "Importação concluída",
+            description: `${result.imported} empréstimos importados com sucesso.`,
+          });
+        } else {
+          setImportError(result.message || "Erro ao importar dados");
+        }
+      } catch (error) {
+        console.error("Erro ao processar arquivo:", error);
+        setImportError("Erro ao processar o arquivo. Verifique o formato e tente novamente.");
+      }
+      
+      // Limpar o input de arquivo para permitir selecionar o mesmo arquivo novamente
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    };
+    
+    reader.onerror = () => {
+      setImportError("Erro ao ler o arquivo.");
+    };
+    
+    reader.readAsText(file);
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-bold">Relatórios</h1>
           <p className="text-gray-500">Visualize e exporte dados dos empréstimos</p>
         </div>
         
-        <button
-          onClick={exportToCSV}
-          className="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg flex items-center"
-        >
-          <Download className="mr-2 h-5 w-5" />
-          Exportar CSV
-        </button>
+        <div className="flex gap-3">
+          <Button
+            onClick={handleFileUpload}
+            variant="outline"
+            className="flex items-center"
+          >
+            <Upload className="mr-2 h-5 w-5" />
+            Importar CSV
+          </Button>
+          
+          <Button
+            onClick={exportToCSV}
+            className="bg-primary hover:bg-primary/90 text-white flex items-center"
+          >
+            <Download className="mr-2 h-5 w-5" />
+            Exportar CSV
+          </Button>
+
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            accept=".csv"
+            className="hidden"
+          />
+        </div>
       </div>
+
+      {importError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-start">
+          <AlertCircle className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
+          <div>
+            <h3 className="font-medium">Erro na importação</h3>
+            <p className="text-sm">{importError}</p>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white rounded-lg shadow p-6">
