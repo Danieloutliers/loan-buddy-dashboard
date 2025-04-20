@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLoanContext } from '../context/LoanContext';
@@ -139,22 +140,26 @@ const LoanForm = () => {
         notes: formData.notes
       };
       
+      // Corrigindo para garantir que o cronograma de pagamento seja adicionado corretamente
       if (formData.hasPaymentSchedule) {
+        const nextPaymentDate = calculateNextPaymentDate(formData.issueDate, formData.paymentSchedule.frequency);
+        
         loanData.paymentSchedule = {
           frequency: formData.paymentSchedule.frequency,
           installments: parseInt(formData.paymentSchedule.installments),
           installmentAmount: parseFloat(formData.paymentSchedule.installmentAmount),
-          nextPaymentDate: calculateNextPaymentDate(formData.issueDate, formData.paymentSchedule.frequency)
+          nextPaymentDate: nextPaymentDate
         };
       }
       
+      let newLoan;
       if (isEditMode && loan) {
         updateLoan({ ...loanData, id: loan.id, status: loan.status });
+        navigate(`/loans/${loan.id}`);
       } else {
-        addLoan(loanData);
+        newLoan = addLoan(loanData);
+        navigate(`/loans/${newLoan.id}`);
       }
-      
-      navigate('/loans');
     } catch (error) {
       console.error('Erro ao salvar empréstimo:', error);
       alert('Ocorreu um erro ao salvar o empréstimo. Verifique os dados e tente novamente.');
@@ -166,25 +171,25 @@ const LoanForm = () => {
     let nextDate: Date;
     
     switch (frequency) {
-      case 'weekly':
+      case "weekly":
         nextDate = new Date(startDate);
         nextDate.setDate(nextDate.getDate() + 7);
         break;
-      case 'biweekly':
+      case "biweekly":
         nextDate = new Date(startDate);
         nextDate.setDate(nextDate.getDate() + 14);
         break;
-      case 'monthly':
+      case "monthly":
         nextDate = addMonths(startDate, 1);
         break;
-      case 'quarterly':
+      case "quarterly":
         nextDate = addMonths(startDate, 3);
         break;
-      case 'yearly':
+      case "yearly":
         nextDate = addMonths(startDate, 12);
         break;
       default:
-        nextDate = addMonths(startDate, 1);
+        nextDate = addMonths(startDate, 1); // Padrão para mensal
     }
     
     return format(nextDate, 'yyyy-MM-dd');
