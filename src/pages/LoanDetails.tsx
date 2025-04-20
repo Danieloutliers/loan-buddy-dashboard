@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLoanContext } from '../context/LoanContext';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Edit, Plus, ArrowLeft, FileText, Trash2 } from 'lucide-react';
 import { Payment } from '../types';
@@ -32,7 +32,8 @@ const LoanDetails = () => {
     getPaymentsByLoanId, 
     addPayment, 
     deletePayment,
-    updateLoan 
+    updateLoan,
+    addLoan
   } = useLoanContext();
   
   const loan = id ? getLoanById(id) : null;
@@ -128,6 +129,34 @@ const LoanDetails = () => {
     }
   };
   
+  const handleDuplicateLoan = () => {
+    if (!loan) return;
+    
+    try {
+      const today = new Date();
+      const dueDate = addMonths(today, loan.paymentSchedule?.installments || 12);
+      
+      const newLoan = {
+        ...loan,
+        issueDate: format(today, 'yyyy-MM-dd'),
+        dueDate: format(dueDate, 'yyyy-MM-dd'),
+        status: 'active' as const,
+        paymentSchedule: loan.paymentSchedule ? {
+          ...loan.paymentSchedule,
+          nextPaymentDate: format(addMonths(today, 1), 'yyyy-MM-dd')
+        } : undefined
+      };
+      
+      delete (newLoan as any).id;
+      
+      const createdLoan = addLoan(newLoan);
+      navigate(`/loans/${createdLoan.id}`);
+    } catch (error) {
+      console.error('Erro ao duplicar empréstimo:', error);
+      alert('Ocorreu um erro ao duplicar o empréstimo. Tente novamente.');
+    }
+  };
+  
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -148,7 +177,15 @@ const LoanDetails = () => {
           </p>
         </div>
         
-        <div>
+        <div className="flex gap-2">
+          <button
+            onClick={handleDuplicateLoan}
+            className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg flex items-center"
+          >
+            <Plus className="mr-2 h-5 w-5" />
+            Duplicar Empréstimo
+          </button>
+          
           <button
             onClick={() => navigate(`/loans/${loan.id}/edit`)}
             className="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg flex items-center"

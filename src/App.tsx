@@ -13,6 +13,8 @@ import BorrowersList from "./pages/BorrowersList";
 import BorrowerForm from "./pages/BorrowerForm";
 import PaymentsList from "./pages/PaymentsList";
 import NotFound from "./pages/NotFound";
+import Reports from "./pages/Reports";
+import Settings from "./pages/Settings";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +41,12 @@ const App = () => (
             
             {/* Rota de Pagamentos */}
             <Route path="/payments" element={<Layout><PaymentsList /></Layout>} />
+            
+            {/* Rota de Relatórios */}
+            <Route path="/reports" element={<Layout><Reports /></Layout>} />
+            
+            {/* Rota de Configurações */}
+            <Route path="/settings" element={<Layout><Settings /></Layout>} />
             
             {/* Rota 404 */}
             <Route path="*" element={<NotFound />} />
