@@ -7,13 +7,12 @@ import { FileText, Download, Upload, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { toast } from '@/components/ui/sonner';
 
 const Reports = () => {
   const { loans, payments, borrowers, calculateLoanMetrics, importLoansData } = useLoanContext();
   const metrics = calculateLoanMetrics();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { toast: UIToast } = useToast();
+  const { toast } = useToast();
   const [importError, setImportError] = useState<string | null>(null);
 
   const formatCurrency = (value: number) => {
@@ -56,9 +55,18 @@ const Reports = () => {
         'Próxima Data de Pagamento': loan.paymentSchedule?.nextPaymentDate || '',
         'Notas': loan.notes || '',
         'Número de Pagamentos': loanPayments.length,
+        // Serializar as informações detalhadas dos pagamentos incluindo histórico
         'Pagamentos': JSON.stringify(paymentsData)
       };
     });
+
+    if (loanData.length === 0) {
+      toast({
+        title: 'Nenhum empréstimo para exportar.',
+        description: 'Não há dados disponíveis para exportação.'
+      });
+      return;
+    }
 
     // Converter para CSV
     const headers = Object.keys(loanData[0] || {}).join(',');
@@ -83,6 +91,7 @@ const Reports = () => {
     document.body.removeChild(link);
     
     toast({
+      title: 'Exportação Concluída',
       description: `${loanData.length} empréstimos exportados com sucesso.`
     });
   };
@@ -148,13 +157,30 @@ const Reports = () => {
               loanData[header] = '';
             }
           });
+
+          // Ao importar, assegurar que os campos numéricos sejam convertidos corretamente
+          // E garantir que o campo 'Pagamentos' seja parseado corretamente se existir
+          if (loanData['Valor Principal']) {
+            loanData['Valor Principal'] = parseFloat(loanData['Valor Principal']);
+          }
+          if (loanData['Taxa de Juros']) {
+            loanData['Taxa de Juros'] = parseFloat(loanData['Taxa de Juros']);
+          }
+          if (loanData['Número de Parcelas']) {
+            loanData['Número de Parcelas'] = parseInt(loanData['Número de Parcelas'], 10);
+          }
+          if (loanData['Valor da Parcela']) {
+            loanData['Valor da Parcela'] = parseFloat(loanData['Valor da Parcela']);
+          }
+          // Garantir que 'Pagamentos' continue como string para ser tratado no importLoansData
           
           loansData.push(loanData);
         }
         
         const result = importLoansData(loansData);
         if (result.success) {
-          UIToast({
+          toast({
+            title: 'Importação Concluída',
             description: result.message || `${result.imported} empréstimos importados com sucesso.`,
           });
         } else {
@@ -336,3 +362,4 @@ const Reports = () => {
 };
 
 export default Reports;
+
