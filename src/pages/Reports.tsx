@@ -29,6 +29,16 @@ const Reports = () => {
       const borrower = borrowers.find(b => b.id === loan.borrowerId);
       const loanPayments = payments.filter(p => p.loanId === loan.id);
       
+      // Converter pagamentos para JSON string para incluir no CSV
+      const paymentsData = loanPayments.map(payment => ({
+        id: payment.id,
+        date: payment.date,
+        amount: payment.amount,
+        principal: payment.principal,
+        interest: payment.interest,
+        notes: payment.notes || ''
+      }));
+      
       return {
         'ID do Empréstimo': loan.id,
         'ID do Mutuário': loan.borrowerId,
@@ -46,12 +56,21 @@ const Reports = () => {
         'Próxima Data de Pagamento': loan.paymentSchedule?.nextPaymentDate || '',
         'Notas': loan.notes || '',
         'Número de Pagamentos': loanPayments.length,
+        'Pagamentos': JSON.stringify(paymentsData)
       };
     });
 
     // Converter para CSV
     const headers = Object.keys(loanData[0] || {}).join(',');
-    const rows = loanData.map(obj => Object.values(obj).join(','));
+    const rows = loanData.map(obj => {
+      return Object.values(obj).map(value => {
+        // Escapar valores que podem conter vírgulas ou aspas para evitar problemas no CSV
+        if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
+          return `"${value.replace(/"/g, '""')}"`;
+        }
+        return value;
+      }).join(',');
+    });
     const csv = [headers, ...rows].join('\n');
 
     // Download do arquivo
@@ -64,8 +83,7 @@ const Reports = () => {
     document.body.removeChild(link);
     
     toast({
-      title: "Exportação concluída",
-      description: `${loanData.length} empréstimos exportados com sucesso.`,
+      description: `${loanData.length} empréstimos exportados com sucesso.`
     });
   };
 
@@ -99,11 +117,36 @@ const Reports = () => {
         for (let i = 1; i < lines.length; i++) {
           if (!lines[i].trim()) continue;
           
-          const values = lines[i].split(',');
+          // Processamento mais robusto para lidar com campos que contêm vírgulas dentro de aspas
+          const values = [];
+          let currentValue = '';
+          let insideQuotes = false;
+          
+          for (let char of lines[i]) {
+            if (char === '"') {
+              insideQuotes = !insideQuotes;
+            } else if (char === ',' && !insideQuotes) {
+              values.push(currentValue);
+              currentValue = '';
+            } else {
+              currentValue += char;
+            }
+          }
+          values.push(currentValue); // Adicionar o último valor
+          
           const loanData: any = {};
           
           headers.forEach((header, index) => {
-            loanData[header] = values[index];
+            if (index < values.length) {
+              // Remover aspas extras dos valores
+              let value = values[index];
+              if (value.startsWith('"') && value.endsWith('"')) {
+                value = value.substring(1, value.length - 1).replace(/""/g, '"');
+              }
+              loanData[header] = value;
+            } else {
+              loanData[header] = '';
+            }
           });
           
           loansData.push(loanData);
@@ -112,8 +155,7 @@ const Reports = () => {
         const result = importLoansData(loansData);
         if (result.success) {
           UIToast({
-            title: "Importação concluída",
-            description: `${result.imported} empréstimos importados com sucesso.`,
+            description: result.message || `${result.imported} empréstimos importados com sucesso.`,
           });
         } else {
           setImportError(result.message || "Erro ao importar dados");

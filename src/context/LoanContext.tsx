@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { Borrower, Loan, Payment } from '../types';
+import { Borrower, Loan, Payment, LoanStatus } from '../types';
 import { mockBorrowers, mockLoans, mockPayments, generateId } from '../data/mockData';
 import { calculateRemainingBalance, determineNewLoanStatus } from '../utils/loanCalculations';
 
@@ -272,6 +272,7 @@ export const LoanProvider = ({ children }: { children: ReactNode }) => {
     try {
       const importedBorrowers: Record<string, Borrower> = {};
       const importedLoans: Loan[] = [];
+      const importedPayments: Payment[] = [];
       
       data.forEach(item => {
         const borrowerId = item['ID do Mutuário'];
@@ -312,6 +313,29 @@ export const LoanProvider = ({ children }: { children: ReactNode }) => {
         }
         
         importedLoans.push(loan);
+        
+        const paymentsList = item['Pagamentos'];
+        if (paymentsList && typeof paymentsList === 'string') {
+          try {
+            const paymentsData = JSON.parse(paymentsList);
+            
+            if (Array.isArray(paymentsData)) {
+              paymentsData.forEach(payment => {
+                importedPayments.push({
+                  id: payment.id || generateId(),
+                  loanId: item['ID do Empréstimo'],
+                  date: payment.date,
+                  amount: parseFloat(payment.amount),
+                  principal: parseFloat(payment.principal),
+                  interest: parseFloat(payment.interest),
+                  notes: payment.notes || ''
+                });
+              });
+            }
+          } catch (e) {
+            console.warn('Erro ao processar pagamentos do empréstimo:', e);
+          }
+        }
       });
       
       const newBorrowers = [...borrowers];
@@ -331,13 +355,24 @@ export const LoanProvider = ({ children }: { children: ReactNode }) => {
         }
       });
       
+      const newPayments = [...payments];
+      importedPayments.forEach(payment => {
+        const existingPaymentIndex = newPayments.findIndex(p => p.id === payment.id);
+        if (existingPaymentIndex >= 0) {
+          newPayments[existingPaymentIndex] = payment;
+        } else {
+          newPayments.push(payment);
+        }
+      });
+      
       setBorrowers(newBorrowers);
       setLoans(newLoans);
+      setPayments(newPayments);
       
       return { 
         success: true, 
         imported: importedLoans.length,
-        message: `${importedLoans.length} empréstimos importados com sucesso.`
+        message: `${importedLoans.length} empréstimos e ${importedPayments.length} pagamentos importados com sucesso.`
       };
     } catch (error) {
       console.error("Erro ao importar dados:", error);
